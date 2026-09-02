@@ -1,0 +1,28 @@
+# Lovelace card for the scale. Uses only built-in card types (no HACS
+# custom cards required).
+#
+# Install: Edit Dashboard -> Add Card -> Manual, paste this in, Save.
+# Requires the two per-person sensors from template_sensors.yaml
+# (sensor.weight_user_1 / sensor.weight_user_2) to already exist.
+
+type: vertical-stack
+cards:
+  - type: entities
+    title: Scale
+    show_header_toggle: false
+    entities:
+      - entity: sensor.xiaomi_scale_s200_bridge_weight
+        name: Last reading
+      - entity: sensor.weight_user_1
+        name: User 1
+      - entity: sensor.weight_user_2
+        name: User 2
+
+  - type: history-graph
+    title: Weight history
+    hours_to_show: 168
+    entities:
+      - entity: sensor.weight_user_1
+        name: User 1
+      - entity: sensor.weight_user_2
+        name: User 2
