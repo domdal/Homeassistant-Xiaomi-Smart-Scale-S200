@@ -1,28 +1,123 @@
-# Lovelace card for the scale. Uses only built-in card types (no HACS
-# custom cards required).
+# Lovelace dashboard view for the scale, using the "Sections" view type
+# (Settings -> Dashboards -> Add Dashboard/View -> pick "Sections").
 #
-# Install: Edit Dashboard -> Add Card -> Manual, paste this in, Save.
-# Requires the two per-person sensors from template_sensors.yaml
+# Layout: one section with the current readings, one section with a
+# smoothed-curve history graph per person (recent detail), one section
+# with a long-term graph per person (years).
+#
+# The history graphs use custom:apexcharts-card (install via HACS ->
+# Frontend -> search "apexcharts-card") instead of the stock history-graph
+# card, since HA's built-in history cards can't interpolate a curve between
+# the scale's sparse readings - they only render a flat/rectangular hold
+# between measurements. apexcharts-card keeps the axis labels and gridlines
+# of the stock chart while giving the series `curve: smooth`.
+#
+# The "recent" cards read raw state history, which the recorder purges
+# after recorder.purge_keep_days (10 days by default) - fine for a 7-day
+# view. The "long term" cards instead use apexcharts-card's `statistics:`
+# option, which reads from Home Assistant's long-term statistics tables
+# (hourly/daily aggregates) instead of raw history - those are never
+# purged by purge_keep_days, so a multi-year graph_span actually has data
+# to show. Long-term statistics are generated automatically for any sensor
+# with state_class: measurement (both sensor.weight_user_1/2 already have
+# this in template_sensors_wifi.yaml/template_sensors_zigbee.yaml) - no
+# extra recorder configuration needed for the data itself to be kept.
+#
+# `grid_options.columns` controls how wide a card is within its section on
+# a Sections view - both graph cards below use the same value so they end
+# up the same width. Tune it (and `column_span` on each section) to taste.
+#
+# Install: create/open a Sections view, Edit -> Edit in YAML, paste this
+# in, Save. Requires the two per-person sensors from
+# template_sensors_wifi.yaml / template_sensors_zigbee.yaml
 # (sensor.weight_user_1 / sensor.weight_user_2) to already exist.
 
-type: vertical-stack
-cards:
-  - type: entities
-    title: Scale
-    show_header_toggle: false
-    entities:
-      - entity: sensor.xiaomi_scale_s200_bridge_weight
-        name: Last reading
-      - entity: sensor.weight_user_1
-        name: User 1
-      - entity: sensor.weight_user_2
-        name: User 2
+type: sections
+title: Scale
+sections:
+  - type: grid
+    column_span: 4
+    cards:
+      - type: entities
+        title: Scale
+        show_header_toggle: false
+        entities:
+          - entity: sensor.xiaomi_scale_s200_bridge_weight
+            name: Last reading
+          - entity: sensor.weight_user_1
+            name: User 1
+          - entity: sensor.weight_user_2
+            name: User 2
+          - entity: sensor.0x0000000000000000_linkquality
+          - entity: sensor.0x0000000000000000_last_seen
+  - type: grid
+    column_span: 4
+    cards:
+      - type: custom:apexcharts-card
+        grid_options:
+          columns: 21
+          rows: auto
+        header:
+          show: true
+          title: User 1 weight history
+          show_states: true
+        graph_span: 7d
+        series:
+          - entity: sensor.weight_user_1
+            name: User 1
+            curve: smooth
+            stroke_width: 2
 
-  - type: history-graph
-    title: Weight history
-    hours_to_show: 168
-    entities:
-      - entity: sensor.weight_user_1
-        name: User 1
-      - entity: sensor.weight_user_2
-        name: User 2
+      - type: custom:apexcharts-card
+        grid_options:
+          columns: 21
+          rows: auto
+        header:
+          show: true
+          title: User 2 weight history
+          show_states: true
+        graph_span: 7d
+        series:
+          - entity: sensor.weight_user_2
+            name: User 2
+            curve: smooth
+            stroke_width: 2
+
+  - type: grid
+    column_span: 4
+    cards:
+      - type: custom:apexcharts-card
+        grid_options:
+          columns: 21
+          rows: auto
+        header:
+          show: true
+          title: User 1 weight - long term
+          show_states: true
+        graph_span: 2y
+        series:
+          - entity: sensor.weight_user_1
+            name: User 1
+            curve: smooth
+            stroke_width: 2
+            statistics:
+              type: mean
+              period: day
+
+      - type: custom:apexcharts-card
+        grid_options:
+          columns: 21
+          rows: auto
+        header:
+          show: true
+          title: User 2 weight - long term
+          show_states: true
+        graph_span: 2y
+        series:
+          - entity: sensor.weight_user_2
+            name: User 2
+            curve: smooth
+            stroke_width: 2
+            statistics:
+              type: mean
+              period: day

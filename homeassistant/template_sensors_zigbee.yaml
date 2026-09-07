@@ -1,0 +1,81 @@
+# For the Zigbee firmware backend (src/main_zigbee.cpp, via
+# zigbee2mqtt/external_converters/scale_s200_converter.mjs). Running the
+# WiFi/MQTT backend instead? Use template_sensors_wifi.yaml.
+#
+# Splits the scale's weight sensor (always the single most recent reading
+# regardless of who it was) into a per-person sensor. The trigger
+# entity_id below (sensor.xiaomi_smart_scale_s200_weight) matches
+# zigbee2mqtt's default friendly_name for this device - if you rename it
+# in z2m, check Developer Tools -> States and update this to match. The
+# scale's BLE broadcast carries no per-user ID, so each reading is assigned to
+# whichever of two expected weight ranges it's closer to - the same
+# heuristic Xiaomi's own Mi Fit app uses. Overlap between the two ranges is
+# fine; ties go to whichever range's midpoint is closer, so a reading is
+# never assigned to both.
+#
+# Tune the four numbers below (40/75 and 60/100) to your own weights.
+#
+# MIN_PLAUSIBLE_KG (20) rejects obviously-bogus readings rather than
+# running them through the range-midpoint logic below - notably a 0kg
+# report the Zigbee stack can send once at join/interview time (its ZCL
+# Analog Input cluster's presentValue defaults to 0.0 before any real
+# measurement), which would otherwise always get attributed to whichever
+# user's range has the closer midpoint to zero. Set it below your
+# lightest expected real reading if needed.
+#
+# Install: paste this block under a top-level `template:` key in
+# configuration.yaml (or merge it into an existing one), then reload via
+# Developer Tools -> YAML -> Template Entities (or restart Home Assistant).
+#
+# To make the ranges editable from the HA UI instead of hardcoding them
+# here, create four input_number helpers (Settings -> Devices & services ->
+# Helpers) and replace e.g. `40` with
+# `states('input_number.user1_min') | float`.
+
+template:
+  - trigger:
+      - trigger: state
+        # Requires the device's friendly name in zigbee2mqtt to be set to
+        # "Xiaomi Smart Scale S200" (Settings -> Devices, or the pencil
+        # icon next to it in the device list) - that's what z2m derives
+        # this entity_id from. Renamed it differently? Update this line
+        # (and check Developer Tools -> States) to match.
+        entity_id: sensor.xiaomi_smart_scale_s200_weight
+    sensor:
+      - name: "Weight User 1"
+        unique_id: scale_weight_user1
+        device_class: weight
+        state_class: measurement
+        unit_of_measurement: kg
+        state: >
+          {% set w = trigger.to_state.state | float(none) %}
+          {% if w is none or w < 20 %}
+            {{ states('sensor.weight_user_1') }}
+          {% else %}
+            {% set mid1 = (40 + 75) / 2 %}
+            {% set mid2 = (60 + 100) / 2 %}
+            {% if (w - mid1) | abs <= (w - mid2) | abs %}
+              {{ w }}
+            {% else %}
+              {{ states('sensor.weight_user_1') }}
+            {% endif %}
+          {% endif %}
+
+      - name: "Weight User 2"
+        unique_id: scale_weight_user2
+        device_class: weight
+        state_class: measurement
+        unit_of_measurement: kg
+        state: >
+          {% set w = trigger.to_state.state | float(none) %}
+          {% if w is none or w < 20 %}
+            {{ states('sensor.weight_user_2') }}
+          {% else %}
+            {% set mid1 = (40 + 75) / 2 %}
+            {% set mid2 = (60 + 100) / 2 %}
+            {% if (w - mid1) | abs > (w - mid2) | abs %}
+              {{ w }}
+            {% else %}
+              {{ states('sensor.weight_user_2') }}
+            {% endif %}
+          {% endif %}
