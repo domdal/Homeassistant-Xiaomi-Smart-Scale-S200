@@ -1,5 +1,8 @@
 # esp32-scale-bridge
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-donate-yellow.svg)](https://buymeacoffee.com/domdal)
+
+
 Bridges a Xiaomi Mi Smart Scale (BLE, MiBeacon-encrypted) to Home Assistant
 over MQTT, using an ESP32-C6 as a passive BLE listener. Tested against a
 **Xiaomi Mi Smart Scale S200 (model `MJTZC02YM` https://www.amazon.de/dp/B0F7SCD618)**, but should work
